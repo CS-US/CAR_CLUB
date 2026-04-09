@@ -209,29 +209,46 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load Firebase functions dynamically
 async function loadFirebaseFunctions() {
     try {
-        // Import Firebase modules
-        const { ref, set, get, onValue, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js");
-        const { database } = await import("./firebase-config.js");
+        // Load Firebase SDK
+        await loadScript("https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js");
+        await loadScript("https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js");
+        
+        // Initialize Firebase with config inline
+        const firebaseConfig = {
+            apiKey: "AIzaSyCegO0yHTgJtTYBOblrJmpPJh4uURzkI_s",
+            authDomain: "club-car-f1-predictions.firebaseapp.com",
+            databaseURL: "https://club-car-f1-predictions-default-rtdb.firebaseio.com",
+            projectId: "club-car-f1-predictions",
+            storageBucket: "club-car-f1-predictions.firebasestorage.app",
+            messagingSenderId: "686864874589",
+            appId: "1:686864874589:web:331047ac6cf285b28861b4",
+            measurementId: "G-QXCH8WCGDB"
+        };
+        
+        const { initializeApp, getDatabase, ref, set, onValue, serverTimestamp } = window.firebase;
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
         
         // Make Firebase functions available globally
         window.firebaseFunctions = {
-            ref, set, get, onValue, serverTimestamp, database
+            ref, set, onValue, serverTimestamp, database
         };
-        
-        // Setup real-time leaderboard
-        const predictionsRef = ref(database, 'predictions');
-        onValue(predictionsRef, (snapshot) => {
-            const predictions = [];
-            snapshot.forEach(childSnapshot => {
-                predictions.push(childSnapshot.val());
-            });
-            updateLeaderboard(predictions);
-        });
         
         console.log('Firebase loaded successfully');
     } catch (error) {
         console.error('Error loading Firebase:', error);
     }
+}
+
+// Helper function to load scripts
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
 }
 
 function initializeDriverSelects() {

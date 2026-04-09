@@ -348,18 +348,23 @@ function updateCurrentRaceDisplay() {
 
 function handlePredictionSubmit(e) {
     e.preventDefault();
+    console.log('Form submitted!');
     
     const playerName = document.getElementById('playerName').value.trim();
     const firstPlace = document.getElementById('firstPlace').value;
     const secondPlace = document.getElementById('secondPlace').value;
     const thirdPlace = document.getElementById('thirdPlace').value;
     
+    console.log('Form data:', { playerName, firstPlace, secondPlace, thirdPlace });
+    
     if (!playerName || !firstPlace || !secondPlace || !thirdPlace) {
+        console.log('Validation failed - missing fields');
         showMessage('Please fill in all fields', 'error');
         return;
     }
     
     if (firstPlace === secondPlace || firstPlace === thirdPlace || secondPlace === thirdPlace) {
+        console.log('Validation failed - duplicate drivers');
         showMessage('Please select three different drivers', 'error');
         return;
     }
@@ -376,25 +381,44 @@ function handlePredictionSubmit(e) {
         score: 0
     };
     
+    console.log('Prediction object:', prediction);
+    
     // Try Firebase first, fallback to localStorage
     try {
+        console.log('Attempting Firebase save...');
         savePredictionToFirebase(prediction);
         document.getElementById('predictionForm').reset();
         showMessage('Prediction submitted successfully!', 'success');
+        updateLeaderboard(); // Refresh leaderboard
     } catch (error) {
         console.log('Firebase error, using localStorage:', error);
         savePredictionLocal(prediction);
         document.getElementById('predictionForm').reset();
         showMessage('Prediction submitted successfully!', 'success');
+        updateLeaderboard(); // Refresh leaderboard
     }
 }
 
 // Firebase save function
 function savePredictionToFirebase(prediction) {
+    console.log('Firebase database available:', !!database);
+    console.log('Firebase object available:', !!firebase);
+    
+    if (!database) {
+        throw new Error('Firebase database not available');
+    }
+    
     const newPredictionRef = database.ref('predictions').push();
+    console.log('Firebase ref created:', newPredictionRef);
+    
     return newPredictionRef.set({
         ...prediction,
         timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        console.log('Firebase save successful!');
+    }).catch(error => {
+        console.error('Firebase save error:', error);
+        throw error;
     });
 }
 

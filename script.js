@@ -209,9 +209,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCurrentRaceDisplay();
         initializeAdminPanel();
         setupEventListeners();
-        
-        // Load Firebase functions after everything else is ready
-        setTimeout(loadFirebaseFunctions, 1000);
+        updateLeaderboard();
+        console.log('Initialization complete - Firebase disabled for now');
     } else {
         console.error('DOM elements not found!');
     }
@@ -377,25 +376,10 @@ function handlePredictionSubmit(e) {
         score: 0
     };
     
-    // Save to Firebase if available, otherwise use localStorage
-    if (window.firebaseFunctions) {
-        const { ref, set, serverTimestamp, database } = window.firebaseFunctions;
-        const predictionRef = ref(database, 'predictions/' + Date.now());
-        set(predictionRef, {
-            ...prediction,
-            timestamp: serverTimestamp()
-        }).then(() => {
-            document.getElementById('predictionForm').reset();
-            showMessage('Prediction submitted successfully!', 'success');
-        }).catch(error => {
-            showMessage('Error submitting prediction: ' + error, 'error');
-        });
-    } else {
-        // Fallback to localStorage
-        savePredictionLocal(prediction);
-        document.getElementById('predictionForm').reset();
-        showMessage('Prediction submitted successfully!', 'success');
-    }
+    // Use localStorage for now (Firebase disabled)
+    savePredictionLocal(prediction);
+    document.getElementById('predictionForm').reset();
+    showMessage('Prediction submitted successfully!', 'success');
 }
 
 // LocalStorage fallback for predictions
@@ -408,7 +392,8 @@ function savePredictionLocal(prediction) {
     localStorage.setItem('f1Predictions', JSON.stringify(predictions));
 }
 
-function updateLeaderboard(predictions) {
+function updateLeaderboard() {
+    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
     const leaderboardDiv = document.getElementById('leaderboard');
     
     // Group predictions by player and calculate scores

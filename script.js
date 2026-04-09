@@ -376,10 +376,26 @@ function handlePredictionSubmit(e) {
         score: 0
     };
     
-    // Use localStorage for now (Firebase disabled)
-    savePredictionLocal(prediction);
-    document.getElementById('predictionForm').reset();
-    showMessage('Prediction submitted successfully!', 'success');
+    // Try Firebase first, fallback to localStorage
+    try {
+        savePredictionToFirebase(prediction);
+        document.getElementById('predictionForm').reset();
+        showMessage('Prediction submitted successfully!', 'success');
+    } catch (error) {
+        console.log('Firebase error, using localStorage:', error);
+        savePredictionLocal(prediction);
+        document.getElementById('predictionForm').reset();
+        showMessage('Prediction submitted successfully!', 'success');
+    }
+}
+
+// Firebase save function
+function savePredictionToFirebase(prediction) {
+    const newPredictionRef = database.ref('predictions').push();
+    return newPredictionRef.set({
+        ...prediction,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
 }
 
 // LocalStorage fallback for predictions
@@ -393,9 +409,25 @@ function savePredictionLocal(prediction) {
 }
 
 function updateLeaderboard() {
-    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
     const leaderboardDiv = document.getElementById('leaderboard');
     
+    // Try to load from Firebase first
+    try {
+        database.ref('predictions').once('value', (snapshot) => {
+            const predictions = [];
+            snapshot.forEach(childSnapshot => {
+                predictions.push(childSnapshot.val());
+            });
+            renderLeaderboard(predictions, leaderboardDiv);
+        });
+    } catch (error) {
+        console.log('Firebase error, using localStorage:', error);
+        const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
+        renderLeaderboard(predictions, leaderboardDiv);
+    }
+}
+
+function renderLeaderboard(predictions, leaderboardDiv) {
     // Group predictions by player and calculate scores
     const playerScores = {};
     
@@ -549,4 +581,3 @@ window.f1PredictionApp = {
     loadLeaderboard,
     debugScoring
 };
-

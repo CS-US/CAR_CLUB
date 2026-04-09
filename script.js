@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeAdminPanel();
         setupEventListeners();
         updateLeaderboard();
+        setupRealtimeLeaderboard(); // Add real-time updates
         console.log('Initialization complete');
     } else {
         console.error('DOM elements not found!');
@@ -339,9 +340,9 @@ function handlePredictionSubmit(e) {
     
     console.log('Prediction object:', prediction);
     
-    // Use localStorage for now (Firebase disabled)
-    console.log('Using localStorage save...');
-    savePredictionLocal(prediction);
+    // Use Firebase database
+    console.log('Using Firebase save...');
+    savePredictionToFirebase(prediction);
     document.getElementById('predictionForm').reset();
     showMessage('Prediction submitted successfully!', 'success');
     updateLeaderboard(); // Refresh leaderboard
@@ -370,20 +371,30 @@ function savePredictionToFirebase(prediction) {
     });
 }
 
-// LocalStorage fallback for predictions
-function savePredictionLocal(prediction) {
-    let predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    predictions.push({
-        ...prediction,
-        timestamp: new Date().toISOString()
-    });
-    localStorage.setItem('f1Predictions', JSON.stringify(predictions));
-}
 
 function updateLeaderboard() {
     const leaderboardDiv = document.getElementById('leaderboard');
-    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    renderLeaderboard(predictions, leaderboardDiv);
+    
+    // Load from Firebase
+    database.ref('predictions').once('value', (snapshot) => {
+        const predictions = [];
+        snapshot.forEach(childSnapshot => {
+            predictions.push(childSnapshot.val());
+        });
+        renderLeaderboard(predictions, leaderboardDiv);
+    });
+}
+
+// Setup real-time leaderboard updates
+function setupRealtimeLeaderboard() {
+    database.ref('predictions').on('value', (snapshot) => {
+        const predictions = [];
+        snapshot.forEach(childSnapshot => {
+            predictions.push(childSnapshot.val());
+        });
+        const leaderboardDiv = document.getElementById('leaderboard');
+        renderLeaderboard(predictions, leaderboardDiv);
+    });
 }
 
 function renderLeaderboard(predictions, leaderboardDiv) {
@@ -477,12 +488,45 @@ function calculateScore(prediction, actualResults) {
 }
 
 
+function updateScoresWithActualResults(raceName, first, second, third) {
+    const actualResults = { first, second, third };
+    
+    // Update all predictions for this race
+    database.ref('predictions').once('value', (snapshot) => {
+        const updates = {};
+        
+        snapshot.forEach(childSnapshot => {
+            const prediction = childSnapshot.val();
+            const predictionId = childSnapshot.key;
+            
+            if (prediction.raceName === raceName && !prediction.actualResults) {
+                // Calculate score
+                const score = calculateScore(prediction, actualResults);
+                
+                // Update prediction with actual results and score
+                updates[`predictions/${predictionId}/actualResults`] = actualResults;
+                updates[`predictions/${predictionId}/score`] = score;
+            }
+        });
+        
+        // Apply all updates atomically
+        const updatePromises = Object.entries(updates).map(([path, value]) => 
+            database.ref(path).set(value)
+        );
+        
+        Promise.all(updatePromises).then(() => {
+            showMessage('Results submitted successfully! Scores updated.', 'success');
+            updateLeaderboard();
+        });
+    });
+}
+
 function clearAllData() {
     if (confirm('Are you sure you want to clear all prediction data? This cannot be undone.')) {
         // Clear all data from Firebase
-        const predictionsRef = ref(database, 'predictions');
-        set(predictionsRef, null).then(() => {
+        database.ref('predictions').remove().then(() => {
             showMessage('All data cleared successfully!', 'success');
+            updateLeaderboard();
         });
     }
 }
@@ -518,16 +562,23 @@ function setActualRaceResults(raceName, first, second, third) {
 
 // Debug function to test scoring
 function debugScoring() {
-    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    console.log('All predictions:', predictions);
-    
-    predictions.forEach((prediction, index) => {
-        console.log(`Prediction ${index + 1}:`, {
-            name: prediction.playerName,
-            race: prediction.raceName,
-            predicted: [prediction.firstPlace, prediction.secondPlace, prediction.thirdPlace],
-            actual: prediction.actualResults ? [prediction.actualResults.first, prediction.actualResults.second, prediction.actualResults.third] : 'Not set',
-            score: prediction.score
+    // Load from Firebase
+    database.ref('predictions').once('value', (snapshot) => {
+        const predictions = [];
+        snapshot.forEach(childSnapshot => {
+            predictions.push(childSnapshot.val());
+        });
+        
+        console.log('All predictions:', predictions);
+        
+        predictions.forEach((prediction, index) => {
+            console.log(`Prediction ${index + 1}:`, {
+                name: prediction.playerName,
+                race: prediction.raceName,
+                predicted: [prediction.firstPlace, prediction.secondPlace, prediction.thirdPlace],
+                actual: prediction.actualResults ? [prediction.actualResults.first, prediction.actualResults.second, prediction.actualResults.third] : 'Not set',
+                score: prediction.score
+            });
         });
     });
 }
@@ -537,6 +588,7 @@ window.f1PredictionApp = {
     setActualRaceResults,
     calculateScore,
     clearAllData,
-    loadLeaderboard,
+    updateLeaderboard,
     debugScoring
 };
+

@@ -1,3 +1,7 @@
+// Firebase imports
+import { ref, set, get, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+import { database } from "./firebase-config.js";
+
 // F1 Drivers 2026 Season
 const f1Drivers = [
     'Lando Norris',
@@ -197,11 +201,11 @@ function handleSubmitResults() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    setupAuthListeners();
     initializeDriverSelects();
     updateCurrentRaceDisplay();
     initializeAdminPanel();
     setupEventListeners();
+    setupRealtimeLeaderboard(updateLeaderboard);
 });
 
 function initializeDriverSelects() {
@@ -273,17 +277,13 @@ function updateCurrentRaceDisplay() {
 function handlePredictionSubmit(e) {
     e.preventDefault();
     
-    if (!currentUser) {
-        showMessage('Please login to submit predictions', 'error');
-        return;
-    }
-    
+    const playerName = document.getElementById('playerName').value.trim();
     const firstPlace = document.getElementById('firstPlace').value;
     const secondPlace = document.getElementById('secondPlace').value;
     const thirdPlace = document.getElementById('thirdPlace').value;
     
-    if (!firstPlace || !secondPlace || !thirdPlace) {
-        showMessage('Please select three different drivers', 'error');
+    if (!playerName || !firstPlace || !secondPlace || !thirdPlace) {
+        showMessage('Please fill in all fields', 'error');
         return;
     }
     
@@ -294,7 +294,7 @@ function handlePredictionSubmit(e) {
     
     const currentRace = getCurrentRace();
     const prediction = {
-        playerName: currentUser.displayName || 'User',
+        playerName: playerName,
         raceName: currentRace.name,
         raceDisplayName: currentRace.displayName,
         raceDate: currentRace.date,
@@ -312,27 +312,76 @@ function handlePredictionSubmit(e) {
         .catch(error => {
             showMessage('Error submitting prediction: ' + error, 'error');
         });
-        loadLeaderboard();
 }
 
-function savePrediction(prediction) {
-    let predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-}
 
-function loadLeaderboard() {
-    loadPredictions().then(predictions => {
-        updateLeaderboardDisplay(predictions);
+function updateLeaderboard(predictions) {
+    const leaderboardDiv = document.getElementById('leaderboard');
+    
+    // Group predictions by player and calculate scores
+    const playerScores = {};
+    
+    predictions.forEach(prediction => {
+        const playerName = prediction.playerName;
+        if (!playerScores[playerName]) {
+            playerScores[playerName] = {
+                name: playerName,
+                score: 0,
+                predictions: []
+            };
+        }
+        
+        // Calculate score if actual results exist
+        if (prediction.actualResults) {
+            const score = calculateScore(prediction, prediction.actualResults);
+            playerScores[playerName].score += score;
+        }
+        
+        playerScores[playerName].predictions.push(prediction);
     });
-}
-
-function loadPredictions() {
-    return db.collection('predictions').get().then(querySnapshot => {
-        const predictions = [];
-        querySnapshot.forEach(doc => {
-            predictions.push(doc.data());
-        });
-        return predictions;
+    
+    // Convert to array and sort by score
+    const leaderboard = Object.values(playerScores).sort((a, b) => b.score - a.score);
+    
+    // Add ranks
+    leaderboard.forEach((player, index) => {
+        player.rank = index + 1;
     });
+    
+    // Display leaderboard
+    if (leaderboard.length === 0) {
+        leaderboardDiv.innerHTML = '<div class="no-data">No predictions yet. Be the first to submit!</div>';
+        return;
+    }
+    
+    leaderboardDiv.innerHTML = leaderboard.map(player => {
+        let rankClass = '';
+        let positionBadge = player.rank;
+        
+        if (player.rank === 1) {
+            rankClass = 'gold';
+            positionBadge = '1';
+        } else if (player.rank === 2) {
+            rankClass = 'silver';
+            positionBadge = '2';
+        } else if (player.rank === 3) {
+            rankClass = 'bronze';
+            positionBadge = '3';
+        }
+        
+        return `
+            <div class="leaderboard-item ${rankClass}">
+                <div class="player-info">
+                    <div class="player-name">
+                        <span class="position-badge">${positionBadge}</span>
+                        ${player.name}
+                    </div>
+                    <div class="player-race">${player.predictions.length} prediction(s)</div>
+                </div>
+                <div class="player-score">${player.score} pts</div>
+            </div>
+        `;
+    }).join('');
 }
 
 function calculateScore(prediction, actualResults) {
@@ -358,27 +407,14 @@ function calculateScore(prediction, actualResults) {
     return score;
 }
 
-function updateScoresWithActualResults(raceName, first, second, third) {
-    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    
-    const actualResults = { first, second, third };
-    
-    predictions.forEach(prediction => {
-        if (prediction.raceName === raceName && !prediction.actualResults) {
-            prediction.actualResults = actualResults;
-            prediction.score = calculateScore(prediction, actualResults);
-        }
-    });
-    
-    localStorage.setItem('f1Predictions', JSON.stringify(predictions));
-    loadLeaderboard();
-}
 
 function clearAllData() {
     if (confirm('Are you sure you want to clear all prediction data? This cannot be undone.')) {
-        localStorage.removeItem('f1Predictions');
-        loadLeaderboard();
-        showMessage('All data cleared successfully!', 'success');
+        // Clear all data from Firebase
+        const predictionsRef = ref(database, 'predictions');
+        set(predictionsRef, null).then(() => {
+            showMessage('All data cleared successfully!', 'success');
+        });
     }
 }
 

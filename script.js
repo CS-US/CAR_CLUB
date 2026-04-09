@@ -1,7 +1,3 @@
-// Firebase imports
-import { ref, set, get, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
-import { database } from "./firebase-config.js";
-
 // F1 Drivers 2026 Season
 const f1Drivers = [
     'Lando Norris',
@@ -205,8 +201,38 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCurrentRaceDisplay();
     initializeAdminPanel();
     setupEventListeners();
-    setupRealtimeLeaderboard(updateLeaderboard);
+    
+    // Load Firebase functions after DOM is ready
+    loadFirebaseFunctions();
 });
+
+// Load Firebase functions dynamically
+async function loadFirebaseFunctions() {
+    try {
+        // Import Firebase modules
+        const { ref, set, get, onValue, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js");
+        const { database } = await import("./firebase-config.js");
+        
+        // Make Firebase functions available globally
+        window.firebaseFunctions = {
+            ref, set, get, onValue, serverTimestamp, database
+        };
+        
+        // Setup real-time leaderboard
+        const predictionsRef = ref(database, 'predictions');
+        onValue(predictionsRef, (snapshot) => {
+            const predictions = [];
+            snapshot.forEach(childSnapshot => {
+                predictions.push(childSnapshot.val());
+            });
+            updateLeaderboard(predictions);
+        });
+        
+        console.log('Firebase loaded successfully');
+    } catch (error) {
+        console.error('Error loading Firebase:', error);
+    }
+}
 
 function initializeDriverSelects() {
     const selects = ['firstPlace', 'secondPlace', 'thirdPlace'];
@@ -304,16 +330,36 @@ function handlePredictionSubmit(e) {
         score: 0
     };
     
-    savePrediction(prediction)
-        .then(() => {
+    // Save to Firebase if available, otherwise use localStorage
+    if (window.firebaseFunctions) {
+        const { ref, set, serverTimestamp, database } = window.firebaseFunctions;
+        const predictionRef = ref(database, 'predictions/' + Date.now());
+        set(predictionRef, {
+            ...prediction,
+            timestamp: serverTimestamp()
+        }).then(() => {
             document.getElementById('predictionForm').reset();
             showMessage('Prediction submitted successfully!', 'success');
-        })
-        .catch(error => {
+        }).catch(error => {
             showMessage('Error submitting prediction: ' + error, 'error');
         });
+    } else {
+        // Fallback to localStorage
+        savePredictionLocal(prediction);
+        document.getElementById('predictionForm').reset();
+        showMessage('Prediction submitted successfully!', 'success');
+    }
 }
 
+// LocalStorage fallback for predictions
+function savePredictionLocal(prediction) {
+    let predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
+    predictions.push({
+        ...prediction,
+        timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('f1Predictions', JSON.stringify(predictions));
+}
 
 function updateLeaderboard(predictions) {
     const leaderboardDiv = document.getElementById('leaderboard');
@@ -471,3 +517,4 @@ window.f1PredictionApp = {
     loadLeaderboard,
     debugScoring
 };
+

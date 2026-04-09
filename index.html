@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLUB CAR CLUB - F1 Predictions</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>CAR CLUB</h1>
+            <p>F1 RACE PREDICTIONS CHAMPIONSHIP</p>
+        </header>
+
+        <main class="main-content">
+            <section class="prediction-section">
+                <h2>Make Your Prediction</h2>
+                <form id="predictionForm" class="prediction-form">
+                    <div class="form-group">
+                        <label for="playerName">Your Name:</label>
+                        <input type="text" id="playerName" name="playerName" required placeholder="Enter your name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Current Race:</label>
+                        <div id="currentRaceDisplay" class="race-display"></div>
+                    </div>
+
+                    <div class="predictions-grid">
+                        <div class="form-group">
+                            <label for="firstPlace">1st Place:</label>
+                            <select id="firstPlace" name="firstPlace" required>
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="secondPlace">2nd Place:</label>
+                            <select id="secondPlace" name="secondPlace" required>
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="thirdPlace">3rd Place:</label>
+                            <select id="thirdPlace" name="thirdPlace" required>
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Submit Prediction</button>
+                </form>
+            </section>
+
+            <section class="leaderboard-section">
+                <h2>Leaderboard</h2>
+                <div class="leaderboard-controls">
+                    <button id="clearData" class="clear-btn">Clear All Data</button>
+                </div>
+                <div id="leaderboard" class="leaderboard">
+                    <div class="no-data">No predictions yet. Be the first to submit!</div>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <h2>Admin Panel - Race Results</h2>
+                <div class="admin-controls">
+                    <div class="form-group">
+                        <label>Current Race:</label>
+                        <div id="adminRaceDisplay" class="race-display"></div>
+                    </div>
+                    
+                    <div class="results-input">
+                        <div class="form-group">
+                            <label for="result1st">1st Place:</label>
+                            <select id="result1st" class="driver-select">
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="result2nd">2nd Place:</label>
+                            <select id="result2nd" class="driver-select">
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="result3rd">3rd Place:</label>
+                            <select id="result3rd" class="driver-select">
+                                <option value="">Select driver</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="admin-buttons">
+                        <button id="autoFetchResults" class="admin-btn">Auto-Fetch Results</button>
+                        <button id="submitResults" class="admin-btn">Submit Results</button>
+                    </div>
+                    
+                    <div id="fetchStatus" class="fetch-status"></div>
+                </div>
+            </section>
+
+            <section class="scoring-section">
+                <h2>Scoring System</h2>
+                <div class="scoring-info">
+                    <div class="score-item">
+                        <span class="position">1st Place Correct:</span>
+                        <span class="points">10 points</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="position">2nd Place Correct:</span>
+                        <span class="points">7 points</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="position">3rd Place Correct:</span>
+                        <span class="points">5 points</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="position">Perfect Prediction:</span>
+                        <span class="points">+5 bonus points</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

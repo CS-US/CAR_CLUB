@@ -210,56 +210,12 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeAdminPanel();
         setupEventListeners();
         updateLeaderboard();
-        console.log('Initialization complete - Firebase disabled for now');
+        console.log('Initialization complete');
     } else {
         console.error('DOM elements not found!');
     }
 });
 
-// Load Firebase functions dynamically
-async function loadFirebaseFunctions() {
-    try {
-        // Load Firebase SDK
-        await loadScript("https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js");
-        await loadScript("https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js");
-        
-        // Initialize Firebase with config inline
-        const firebaseConfig = {
-            apiKey: "AIzaSyCegO0yHTgJtTYBOblrJmpPJh4uURzkI_s",
-            authDomain: "club-car-f1-predictions.firebaseapp.com",
-            databaseURL: "https://club-car-f1-predictions-default-rtdb.firebaseio.com",
-            projectId: "club-car-f1-predictions",
-            storageBucket: "club-car-f1-predictions.firebasestorage.app",
-            messagingSenderId: "686864874589",
-            appId: "1:686864874589:web:331047ac6cf285b28861b4",
-            measurementId: "G-QXCH8WCGDB"
-        };
-        
-        const { initializeApp, getDatabase, ref, set, onValue, serverTimestamp } = window.firebase;
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-        
-        // Make Firebase functions available globally
-        window.firebaseFunctions = {
-            ref, set, onValue, serverTimestamp, database
-        };
-        
-        console.log('Firebase loaded successfully');
-    } catch (error) {
-        console.error('Error loading Firebase:', error);
-    }
-}
-
-// Helper function to load scripts
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
 
 function initializeDriverSelects() {
     console.log('Initializing driver selects...');
@@ -383,20 +339,12 @@ function handlePredictionSubmit(e) {
     
     console.log('Prediction object:', prediction);
     
-    // Try Firebase first, fallback to localStorage
-    try {
-        console.log('Attempting Firebase save...');
-        savePredictionToFirebase(prediction);
-        document.getElementById('predictionForm').reset();
-        showMessage('Prediction submitted successfully!', 'success');
-        updateLeaderboard(); // Refresh leaderboard
-    } catch (error) {
-        console.log('Firebase error, using localStorage:', error);
-        savePredictionLocal(prediction);
-        document.getElementById('predictionForm').reset();
-        showMessage('Prediction submitted successfully!', 'success');
-        updateLeaderboard(); // Refresh leaderboard
-    }
+    // Use localStorage for now (Firebase disabled)
+    console.log('Using localStorage save...');
+    savePredictionLocal(prediction);
+    document.getElementById('predictionForm').reset();
+    showMessage('Prediction submitted successfully!', 'success');
+    updateLeaderboard(); // Refresh leaderboard
 }
 
 // Firebase save function
@@ -434,21 +382,8 @@ function savePredictionLocal(prediction) {
 
 function updateLeaderboard() {
     const leaderboardDiv = document.getElementById('leaderboard');
-    
-    // Try to load from Firebase first
-    try {
-        database.ref('predictions').once('value', (snapshot) => {
-            const predictions = [];
-            snapshot.forEach(childSnapshot => {
-                predictions.push(childSnapshot.val());
-            });
-            renderLeaderboard(predictions, leaderboardDiv);
-        });
-    } catch (error) {
-        console.log('Firebase error, using localStorage:', error);
-        const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-        renderLeaderboard(predictions, leaderboardDiv);
-    }
+    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
+    renderLeaderboard(predictions, leaderboardDiv);
 }
 
 function renderLeaderboard(predictions, leaderboardDiv) {

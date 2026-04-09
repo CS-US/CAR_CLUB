@@ -197,13 +197,24 @@ function handleSubmitResults() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    initializeDriverSelects();
-    updateCurrentRaceDisplay();
-    initializeAdminPanel();
-    setupEventListeners();
+    console.log('DOM Content Loaded - starting initialization...');
     
-    // Load Firebase functions after DOM is ready
-    loadFirebaseFunctions();
+    // Test if elements exist
+    const firstSelect = document.getElementById('firstPlace');
+    console.log('First select element:', firstSelect);
+    
+    if (firstSelect) {
+        console.log('DOM elements found, proceeding with initialization...');
+        initializeDriverSelects();
+        updateCurrentRaceDisplay();
+        initializeAdminPanel();
+        setupEventListeners();
+        
+        // Load Firebase functions after everything else is ready
+        setTimeout(loadFirebaseFunctions, 1000);
+    } else {
+        console.error('DOM elements not found!');
+    }
 });
 
 // Load Firebase functions dynamically
@@ -252,17 +263,36 @@ function loadScript(src) {
 }
 
 function initializeDriverSelects() {
+    console.log('Initializing driver selects...');
+    console.log('Available drivers:', f1Drivers.length);
+    
     const selects = ['firstPlace', 'secondPlace', 'thirdPlace'];
     
     selects.forEach(selectId => {
+        console.log('Processing select:', selectId);
         const select = document.getElementById(selectId);
+        
+        if (!select) {
+            console.error('Select element not found:', selectId);
+            return;
+        }
+        
+        console.log('Found select element, adding drivers...');
+        
+        // Clear existing options except the first one
+        select.innerHTML = '<option value="">Select driver</option>';
+        
         f1Drivers.forEach(driver => {
             const option = document.createElement('option');
             option.value = driver;
             option.textContent = driver;
             select.appendChild(option);
         });
+        
+        console.log('Added', f1Drivers.length, 'drivers to', selectId);
     });
+    
+    console.log('Driver initialization complete');
 }
 
 function setupEventListeners() {

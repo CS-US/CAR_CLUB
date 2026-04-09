@@ -197,10 +197,10 @@ function handleSubmitResults() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    setupAuthListeners();
     initializeDriverSelects();
     updateCurrentRaceDisplay();
     initializeAdminPanel();
-    loadLeaderboard();
     setupEventListeners();
 });
 
@@ -273,116 +273,66 @@ function updateCurrentRaceDisplay() {
 function handlePredictionSubmit(e) {
     e.preventDefault();
     
-    const currentRace = getCurrentRace();
-    const formData = new FormData(e.target);
-    const prediction = {
-        playerName: formData.get('playerName').trim(),
-        raceName: currentRace.name,
-        raceDisplayName: currentRace.displayName,
-        firstPlace: formData.get('firstPlace'),
-        secondPlace: formData.get('secondPlace'),
-        thirdPlace: formData.get('thirdPlace'),
-        timestamp: new Date().toISOString(),
-        score: 0,
-        actualResults: null
-    };
-    
-    // Validate that all drivers are different
-    if (prediction.firstPlace === prediction.secondPlace || 
-        prediction.firstPlace === prediction.thirdPlace || 
-        prediction.secondPlace === prediction.thirdPlace) {
-        showMessage('Please select three different drivers!', 'error');
+    if (!currentUser) {
+        showMessage('Please login to submit predictions', 'error');
         return;
     }
     
-    // Save prediction
-    savePrediction(prediction);
+    const firstPlace = document.getElementById('firstPlace').value;
+    const secondPlace = document.getElementById('secondPlace').value;
+    const thirdPlace = document.getElementById('thirdPlace').value;
     
-    // Reset form
-    e.target.reset();
-    updateDriverOptions();
+    if (!firstPlace || !secondPlace || !thirdPlace) {
+        showMessage('Please select three different drivers', 'error');
+        return;
+    }
     
-    // Show success message
-    showMessage('Prediction submitted successfully!', 'success');
+    if (firstPlace === secondPlace || firstPlace === thirdPlace || secondPlace === thirdPlace) {
+        showMessage('Please select three different drivers', 'error');
+        return;
+    }
     
-    // Update leaderboard
-    loadLeaderboard();
+    const currentRace = getCurrentRace();
+    const prediction = {
+        playerName: currentUser.displayName || 'User',
+        raceName: currentRace.name,
+        raceDisplayName: currentRace.displayName,
+        raceDate: currentRace.date,
+        firstPlace,
+        secondPlace,
+        thirdPlace,
+        score: 0
+    };
+    
+    savePrediction(prediction)
+        .then(() => {
+            document.getElementById('predictionForm').reset();
+            showMessage('Prediction submitted successfully!', 'success');
+        })
+        .catch(error => {
+            showMessage('Error submitting prediction: ' + error, 'error');
+        });
+        loadLeaderboard();
 }
 
 function savePrediction(prediction) {
     let predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    predictions.push(prediction);
-    localStorage.setItem('f1Predictions', JSON.stringify(predictions));
 }
 
 function loadLeaderboard() {
-    const predictions = JSON.parse(localStorage.getItem('f1Predictions') || '[]');
-    
-    // Group by player and calculate total scores
-    const playerScores = {};
-    const playerPredictions = {};
-    
-    predictions.forEach(prediction => {
-        const playerName = prediction.playerName;
-        
-        if (!playerScores[playerName]) {
-            playerScores[playerName] = 0;
-            playerPredictions[playerName] = [];
-        }
-        
-        playerScores[playerName] += prediction.score;
-        playerPredictions[playerName].push(prediction);
+    loadPredictions().then(predictions => {
+        updateLeaderboardDisplay(predictions);
     });
-    
-    // Sort players by score
-    const sortedPlayers = Object.entries(playerScores)
-        .sort(([,a], [,b]) => b - a)
-        .map(([name, score], index) => ({
-            name,
-            score,
-            rank: index + 1,
-            predictions: playerPredictions[name]
-        }));
-    
-    displayLeaderboard(sortedPlayers);
 }
 
-function displayLeaderboard(players) {
-    const leaderboardDiv = document.getElementById('leaderboard');
-    
-    if (players.length === 0) {
-        leaderboardDiv.innerHTML = '<div class="no-data">No predictions yet. Be the first to submit!</div>';
-        return;
-    }
-    
-    leaderboardDiv.innerHTML = players.map((player, index) => {
-        let rankClass = '';
-        let positionBadge = player.rank;
-        
-        if (player.rank === 1) {
-            rankClass = 'gold';
-            positionBadge = '🏆';
-        } else if (player.rank === 2) {
-            rankClass = 'silver';
-            positionBadge = '🥈';
-        } else if (player.rank === 3) {
-            rankClass = 'bronze';
-            positionBadge = '🥉';
-        }
-        
-        return `
-            <div class="leaderboard-item ${rankClass}">
-                <div class="player-info">
-                    <div class="player-name">
-                        <span class="position-badge">${positionBadge}</span>
-                        ${player.name}
-                    </div>
-                    <div class="player-race">${player.predictions.length} prediction(s)</div>
-                </div>
-                <div class="player-score">${player.score} pts</div>
-            </div>
-        `;
-    }).join('');
+function loadPredictions() {
+    return db.collection('predictions').get().then(querySnapshot => {
+        const predictions = [];
+        querySnapshot.forEach(doc => {
+            predictions.push(doc.data());
+        });
+        return predictions;
+    });
 }
 
 function calculateScore(prediction, actualResults) {
